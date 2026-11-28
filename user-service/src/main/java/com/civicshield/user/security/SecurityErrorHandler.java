@@ -75,7 +75,8 @@ public class SecurityErrorHandler
                 code,
                 message,
                 correlationId,
-                Instant.now()
+                Instant.now(),
+                null
         );
 
         response.setStatus(status);

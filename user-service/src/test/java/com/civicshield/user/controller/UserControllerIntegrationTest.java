@@ -11,6 +11,7 @@ import com.civicshield.user.security.JwtAuthenticationFilter;
 import com.civicshield.user.security.SecurityErrorHandler;
 import com.civicshield.user.service.AuthService;
 import com.civicshield.user.service.JwtService;
+import com.civicshield.user.service.RoleManagementService;
 import com.civicshield.user.service.UserService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,9 @@ class UserControllerIntegrationTest {
     private UserService userService;
 
     @MockBean
+    private RoleManagementService roleManagementService;
+
+    @MockBean
     private AuthService authService;
 
     @MockBean
@@ -87,7 +91,7 @@ class UserControllerIntegrationTest {
         when(userService.register(any(RegisterRequest.class))).thenReturn(user);
         when(userService.toUserResponse(user)).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -110,7 +114,7 @@ class UserControllerIntegrationTest {
                         "citizen@example.com", Role.CITIZEN
                 ));
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -125,7 +129,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void profileWithoutTokenReturnsUnauthorized() throws Exception {
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.correlationId").exists())
@@ -145,7 +149,7 @@ class UserControllerIntegrationTest {
 
         when(userService.toUserResponse(user)).thenReturn(response);
 
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("citizen@example.com"))
@@ -155,7 +159,7 @@ class UserControllerIntegrationTest {
 
     @Test
     void invalidRegistrationReturnsValidationError() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -177,7 +181,7 @@ class UserControllerIntegrationTest {
                         "Email already exists"
                 ));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -196,10 +200,74 @@ class UserControllerIntegrationTest {
         when(jwtService.extractUserId("invalid-token"))
                 .thenThrow(new IllegalArgumentException("Invalid token"));
 
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                         .header("Authorization", "Bearer invalid-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
                 .andExpect(jsonPath("$.correlationId").exists());
+    }
+
+    @Test
+    void roleChangeWithoutTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/users/{userId}/role", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"OPERATOR\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void citizenCannotChangeAnotherUsersRole() throws Exception {
+        UUID targetId = UUID.randomUUID();
+
+        when(jwtService.extractUserId("citizen-token")).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(jwtService.isTokenValid("citizen-token", user)).thenReturn(true);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/users/{userId}/role", targetId)
+                        .header("Authorization", "Bearer citizen-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"OPERATOR\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        org.mockito.Mockito.verifyNoInteractions(roleManagementService);
+    }
+
+    @Test
+    void administratorCanChangeAnotherUsersRole() throws Exception {
+        UUID targetId = UUID.randomUUID();
+        user.setRole(Role.ADMIN);
+
+        UserResponse updatedResponse = new UserResponse(
+                targetId,
+                "operator@example.com",
+                "Alex",
+                "Operator",
+                Role.OPERATOR,
+                null
+        );
+
+        when(jwtService.extractUserId("admin-token")).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(jwtService.isTokenValid("admin-token", user)).thenReturn(true);
+
+        when(roleManagementService.changeRole(
+                userId, targetId, Role.OPERATOR
+        )).thenReturn(updatedResponse);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/users/{userId}/role", targetId)
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"OPERATOR\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("OPERATOR"))
+                .andExpect(jsonPath("$.email").value("operator@example.com"));
+
+        org.mockito.Mockito.verify(roleManagementService)
+                .changeRole(userId, targetId, Role.OPERATOR);
     }
 }
