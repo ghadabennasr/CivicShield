@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions name="WorkOrderService"
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:tns="http://civicshield.com/workorder"
+    targetNamespace="http://civicshield.com/workorder">
+
+  <wsdl:types>
+    <xs:schema>
+      <xs:import namespace="http://civicshield.com/workorder"
+                 schemaLocation="WorkOrder.xsd"/>
+    </xs:schema>
+  </wsdl:types>
+
+  <wsdl:message name="CreateWorkOrderInput">
+    <wsdl:part name="body" element="tns:CreateWorkOrderRequest"/>
+  </wsdl:message>
+  <wsdl:message name="CreateWorkOrderOutput">
+    <wsdl:part name="body" element="tns:CreateWorkOrderResponse"/>
+  </wsdl:message>
+  <wsdl:message name="GetWorkOrderStatusInput">
+    <wsdl:part name="body" element="tns:GetWorkOrderStatusRequest"/>
+  </wsdl:message>
+  <wsdl:message name="GetWorkOrderStatusOutput">
+    <wsdl:part name="body" element="tns:GetWorkOrderStatusResponse"/>
+  </wsdl:message>
+  <wsdl:message name="WorkOrderFaultMessage">
+    <wsdl:part name="fault" element="tns:WorkOrderFault"/>
+  </wsdl:message>
+  <wsdl:message name="CorrelationHeaderMessage">
+    <wsdl:part name="header" element="tns:CorrelationId"/>
+  </wsdl:message>
+
+  <wsdl:portType name="WorkOrderPortType">
+    <wsdl:operation name="CreateWorkOrder">
+      <wsdl:input message="tns:CreateWorkOrderInput"/>
+      <wsdl:output message="tns:CreateWorkOrderOutput"/>
+      <wsdl:fault name="WorkOrderFault" message="tns:WorkOrderFaultMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="GetWorkOrderStatus">
+      <wsdl:input message="tns:GetWorkOrderStatusInput"/>
+      <wsdl:output message="tns:GetWorkOrderStatusOutput"/>
+      <wsdl:fault name="WorkOrderFault" message="tns:WorkOrderFaultMessage"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="WorkOrderBinding" type="tns:WorkOrderPortType">
+    <soap:binding style="document"
+                  transport="http://schemas.xmlsoap.org/soap/http"/>
+
+    <wsdl:operation name="CreateWorkOrder">
+      <soap:operation soapAction="http://civicshield.com/workorder/CreateWorkOrder"/>
+      <wsdl:input>
+        <soap:header message="tns:CorrelationHeaderMessage" part="header" use="literal"/>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="WorkOrderFault">
+        <soap:fault name="WorkOrderFault" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+
+    <wsdl:operation name="GetWorkOrderStatus">
+      <soap:operation soapAction="http://civicshield.com/workorder/GetWorkOrderStatus"/>
+      <wsdl:input>
+        <soap:header message="tns:CorrelationHeaderMessage" part="header" use="literal"/>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="WorkOrderFault">
+        <soap:fault name="WorkOrderFault" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="WorkOrderService">
+    <wsdl:port name="WorkOrderPort" binding="tns:WorkOrderBinding">
+      <soap:address location="http://localhost:8085/ws"/>
+    </wsdl:port>
+  </wsdl:service>
+
+</wsdl:definitions>

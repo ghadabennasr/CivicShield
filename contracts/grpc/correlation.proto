@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package civicshield.correlation.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.civicshield.correlation.grpc";
+option java_outer_classname = "CorrelationProto";
+
+// Metadata on every call (not part of the messages):
+//   authorization: Bearer <JWT>
+//   x-correlation-id: <uuid>
+// Errors use gRPC Status: UNAUTHENTICATED, PERMISSION_DENIED,
+// INVALID_ARGUMENT, UNAVAILABLE. Client deadline: 2 s.
+
+service CorrelationService {
+  // Checks whether a new report duplicates an existing one.
+  // The server also stores the summary in correlation_db so later
+  // calls (including the stream) can find it.
+  rpc FindDuplicates(ReportSummary) returns (DuplicateResult);
+
+  // Server streaming: reports near a point, used by case-service.
+  // The stream completes normally after the last report.
+  rpc StreamNearbyReports(NearbyRequest) returns (stream ReportSummary);
+}
+
+message ReportSummary {
+  string report_id = 1;
+  string user_id = 2;
+  string category = 3;      // e.g. POTHOLE, BROKEN_LIGHT
+  string description = 4;
+  double latitude = 5;
+  double longitude = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message DuplicateResult {
+  bool is_duplicate = 1;
+  string duplicate_of_report_id = 2;   // empty if not a duplicate
+  double similarity = 3;               // 0.0 to 1.0
+  repeated string nearby_report_ids = 4;
+}
+
+message NearbyRequest {
+  double latitude = 1;
+  double longitude = 2;
+  int32 radius_meters = 3;             // 0 means server default (100)
+  string exclude_report_id = 4;        // optional
+  int32 max_results = 5;               // 0 means server default
+}
