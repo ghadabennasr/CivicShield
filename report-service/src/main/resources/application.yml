@@ -5,6 +5,19 @@ spring:
   application:
     name: report-service
 
+  datasource:
+    url: ${REPORT_DB_URL:jdbc:postgresql://localhost:5432/report_db}
+    username: ${POSTGRES_USER:civicshield}
+    password: ${POSTGRES_PASSWORD:change_me}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
 management:
   endpoints:
     web:
