@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: CivicShield report-service
+  version: 1.0.0
+  description: Citizens create and list incident reports.
+servers:
+  - url: http://localhost:8082
+security:
+  - bearerAuth: []
+paths:
+  /reports:
+    post:
+      summary: Create a report
+      description: >
+        Calls correlation-service (duplicate check) and abuse-service
+        (score) over gRPC before saving. If one is down, the report is
+        still saved and the flag UNCHECKED is returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Report saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '400':
+          $ref: './error-model.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './error-model.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './error-model.yaml#/components/responses/Forbidden'
+    get:
+      summary: List reports
+      description: A CITIZEN sees only their own reports. AGENT and ADMIN see all.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Page of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportResponse'
+        '401':
+          $ref: './error-model.yaml#/components/responses/Unauthorized'
+  /reports/{id}:
+    get:
+      summary: Get one report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '401':
+          $ref: './error-model.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './error-model.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './error-model.yaml#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateReportRequest:
+      type: object
+      required: [category, description, latitude, longitude]
+      properties:
+        category:
+          type: string
+          enum: [POTHOLE, BROKEN_LIGHT, GARBAGE, GRAFFITI, OTHER]
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+    ReportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        flags:
+          type: array
+          description: Empty when the report is clean.
+          items:
+            type: string
+            enum: [DUPLICATE, ABUSE_SUSPECTED, UNCHECKED]
+        duplicateOfReportId:
+          type: string
+          format: uuid
+          nullable: true
+        abuseScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time

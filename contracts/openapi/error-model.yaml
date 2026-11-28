@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: CivicShield shared error model
+  version: 1.0.0
+  description: >
+    Error body returned by every REST service and the gateway.
+    Other OpenAPI files reference it with
+    $ref: './error-model.yaml#/components/schemas/ErrorResponse'.
+paths: {}
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [code, message, correlationId, timestamp]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Human-readable message. Never contains personal data.
+          example: description must not be blank
+        correlationId:
+          type: string
+          description: Same value as the X-Correlation-Id header.
+          example: 7f3c1a52-9e0b-4d7e-8a3c-2b6f1d9c4e10
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-11-28T14:31:00Z"
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Role not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limit exceeded (gateway)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
