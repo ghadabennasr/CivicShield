@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package civicshield.abuse.v1;
+
+option java_multiple_files = true;
+option java_package = "com.civicshield.abuse.grpc";
+option java_outer_classname = "AbuseProto";
+
+// Metadata on every call (not part of the messages):
+//   authorization: Bearer <JWT>
+//   x-correlation-id: <uuid>
+// Errors use gRPC Status: UNAUTHENTICATED, PERMISSION_DENIED,
+// INVALID_ARGUMENT, UNAVAILABLE. Client deadline: 2 s.
+
+service AbuseService {
+  // Scores a single report (spam and abuse rules).
+  rpc ScoreReport(ReportText) returns (AbuseScore);
+
+  // Client streaming: the caller sends many reports, the server
+  // answers once with an aggregated summary.
+  rpc ScoreBatch(stream ReportText) returns (BatchSummary);
+}
+
+message ReportText {
+  string report_id = 1;
+  string user_id = 2;
+  string text = 3;
+}
+
+message AbuseScore {
+  string report_id = 1;
+  int32 score = 2;                 // 0 (clean) to 100 (abusive)
+  bool flagged = 3;                // true if score >= threshold
+  repeated string reasons = 4;     // e.g. KEYWORD, REPEATED_TEXT, RATE
+}
+
+message BatchSummary {
+  int32 total = 1;
+  int32 flagged_count = 2;
+  double average_score = 3;
+  int32 max_score = 4;
+}
